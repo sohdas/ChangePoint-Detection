@@ -6,6 +6,8 @@ import pandas as pd
 from collections import deque
 import copy
 import random
+import offline_bayesian as bay_cpd
+from functools import partial
 
 # - start generator code - #
 
@@ -148,14 +150,21 @@ gen_values(ChangingDistributionGenerator(stats.norm, {'loc': random.randint(5,25
 gen_values(DriftGenerator(stats.norm, {'loc': random.randint(5,25), 'scale': random.randint(1,4)},stats.norm, {'loc': random.randint(5,25), 'scale': random.randint(1,4)}, random.randint(30,70), 5))
 
 # TODO: iterate through existing distributions and try different CPD methods on each one
-# TODO: decide on metric(s) for assessing general performance of a CPD method
-# TODO: calculate an aggregate score which represents the effectiveness of a CPD method across the different distributions, derived from the above metric
+# Using f1 score as metric of how good it is
 # TODO: draw insights: are some methods better on certain distributions, etc...
 
-for dist in distributions:
-    plt.plot(dist[0])
-    plt.axvline(x= dist[1],**{'color': 'red'})
+
+
+for data in distributions:
+
+    log_likelihood_1, log_likelihood_2, cp_prob = bay_cpd.offline_changepoint_detection(data[0], partial(bay_cpd.const_prior, l=(len(data[0])+1)), bay_cpd.gaussian_obs_log_likelihood, truncate=-40)   
+
+    plt.plot(data[0])
+
+    guess = np.argmax(np.exp(cp_prob).sum(0))
+
+    plt.axvline(x= data[1],**{'color': 'red'})
+    plt.axvline(x= guess, **{'color': 'green'})
     plt.show()
 
-"""questions for the team"""
-# are we worried more about false positives or false negatives
+    
