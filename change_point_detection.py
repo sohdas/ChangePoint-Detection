@@ -131,16 +131,19 @@ class DataBackedGenerator(Generator):
 
 
 # make different distributions with randomized parameters for the mean (loc) and standard deviation (scale)
+dist_length = 100
 
 distributions = []
 
 def gen_values(gen):
     
-    vals = np.zeros(100)
-    for x in range(100):
+    vals = np.zeros(dist_length)
+    for x in range(dist_length):
         vals[x] = gen.get()
 
-    distributions.append((vals,gen._changepoint))
+    cps = []
+    cps.append(gen._changepoint)
+    distributions.append((vals,cps))
 
 # loc = mean of distribution
 # scale = standard deviation
@@ -149,22 +152,32 @@ gen_values(DistributionGenerator(stats.norm, **{'loc': random.randint(5,25), 'sc
 gen_values(ChangingDistributionGenerator(stats.norm, {'loc': random.randint(5,25), 'scale': random.randint(1,4)},stats.norm, {'loc': random.randint(5,25), 'scale': random.randint(1,4)}, random.randint(30,70)))
 gen_values(DriftGenerator(stats.norm, {'loc': random.randint(5,25), 'scale': random.randint(1,4)},stats.norm, {'loc': random.randint(5,25), 'scale': random.randint(1,4)}, random.randint(30,70), 5))
 
-# TODO: iterate through existing distributions and try different CPD methods on each one
-# Using f1 score as metric of how good it is
-# TODO: draw insights: are some methods better on certain distributions, etc...
+multi_dist = [distributions[1][0], distributions[2][0]]
+multi_cps = [distributions[1][1][0], 100, dist_length + distributions[2][1][0]]
 
+join_dist = np.hstack(multi_dist)
+distributions.append((join_dist, multi_cps))
 
+# TODO: fix code so it works with multiple changepoints
+# TODO: iterate through existing distributions and try different CPD methods on each one, using f1 score as metric
+
+def eval_f1_score():
+    return None
 
 for data in distributions:
-
-    log_likelihood_1, log_likelihood_2, cp_prob = bay_cpd.offline_changepoint_detection(data[0], partial(bay_cpd.const_prior, l=(len(data[0])+1)), bay_cpd.gaussian_obs_log_likelihood, truncate=-40)   
+    ll_1, ll_2, cp_prob = bay_cpd.offline_changepoint_detection(data[0], partial(bay_cpd.const_prior, l=(len(data[0])+1)), bay_cpd.gaussian_obs_log_likelihood, truncate=-40)   
 
     plt.plot(data[0])
 
-    guess = np.argmax(np.exp(cp_prob).sum(0))
+    guesses = np.exp(cp_prob).sum(0)
+    #guesses = np.argwhere(guesses > 0.1)
 
-    plt.axvline(x= data[1],**{'color': 'red'})
-    plt.axvline(x= guess, **{'color': 'green'})
+    for cp in data[1]:
+         plt.axvline(x = cp,**{'color': 'red'})
+    for i in range(len(guesses)):
+        plt.axvline(x = i, **{'color': 'green'}, alpha = guesses[i])
+
+    plt.title('Bayesian Changepoint Detection (engr-stocks)', fontdict = None)
     plt.show()
-
+    
     
